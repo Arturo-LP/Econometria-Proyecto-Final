@@ -6,7 +6,7 @@ Proyecto Econométrico (CIDE-ME, 2025): Experiencia Inflacionaria a Nivel Hogar
 
 Con el objetivo de capturar la heterogeneidad en las experiencias inflacionarias de los hogares, construimos un **índice de inflación individualizado** para cada hogar a partir de la Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH) y el Índice Nacional de Precios al Consumidor (INPC) desagregado por rubro y entidad federativa.
 
-El procedimiento consiste en ponderar las tasas de inflación por rubro según la estructura de gasto observada a nivel hogar. Formalmente, para cada hogar \( h \) en el periodo \( t \), el índice de inflación individualizada se define como:
+El procedimiento consiste en ponderar las tasas de inflación por rubro según la estructura de gasto observada a nivel hogar. Formalmente, para cada hogar $$h$$ en el periodo $$t$$, el índice de inflación individualizada se define como:
 
 $$
 \pi_{h,t-k,t} = \sum_{i=1}^{n} w_{h,i} \cdot \pi_{i,t-k,t}^{e}
@@ -15,7 +15,7 @@ $$
 donde:
 
 - $$\pi_{h,t-k,t}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
-- $$w_{h,i}$$: Participación del rubro $$ i $$ en el gasto total del hogar $$h$$
+- $$w_{h,i}$$: Participación del rubro $$i$$ en el gasto total del hogar $$h$$
 - $$\pi_{i,t-k,t}^{e}$$: Tasa de inflación del rubro $$i$$ en la entidad federativa $$e$$ donde reside el hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
 
 Cada vector de ponderaciones $$w_{h} = (w_{h,1}, w_{h,2}, \dots, w_{h,n})$$ fue construido a partir de los gastos trimestrales reportados por hogar en los rubros disponibles en ENIGH, normalizados como proporciones del gasto total.
