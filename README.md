@@ -31,9 +31,7 @@ Como parte del análisis de las implicaciones distributivas de la inflación, pr
 
 La especificación general del modelo a estimar es:
 
-$$
-\text{Quant}_\tau(\pi_{h,t} \mid X_{h,t}) = X_{h,t}'\beta_\tau
-$$
+$$\text{Quant}_\tau(\pi_{h,t} \mid X_{h,t}) = X_{h,t}'\beta_\tau$$
 
 donde:
 
