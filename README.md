@@ -31,17 +31,20 @@ Como parte del análisis de las implicaciones distributivas de la inflación, pr
 
 La especificación general del modelo a estimar es:
 
-$$\text{Quant}_\tau(\pi_{h,t} \mid X_{h,t}) = X_{h,t}'\beta_\tau$$
+$$
+Q_\tau(g_{h,t} \mid \pi_{h,t}, X_{h,t}) = \alpha_\tau + \delta_\tau \pi_{h,t} + X_{h,t}'\beta_\tau
+$$
 
 donde:
 
+- $$g_{h,t}$$: Gasto total (mensual o trimestral) del hogar $$h$$ en el periodo $$t$$
 - $$\pi_{h,t}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$
-- $$\text{Quant}_\tau(\cdot)$$: Cuantil condicional de orden $$\tau \in (0,1)$$
-- $$X_{h,t}$$: Vector de características observables del hogar (ingreso, tamaño del hogar, ubicación geográfica, tipo de ocupación, nivel educativo, entre otras)
-- $$\beta_\tau$$: Vector de coeficientes específicos al cuantil $$\tau$$
+- $$X_{h,t}$$: Vector de controles observables del hogar (ingreso, tamaño, ubicación, tipo de ocupación, nivel educativo, entre otros)
+- $$\delta_\tau$$: Coeficiente que captura el efecto de la inflación sobre el gasto en el cuantil $$\tau$$
+- $$\beta_\tau$$: Coeficientes específicos al cuantil $$\tau$$ para las covariables
+- $$Q_\tau(\cdot)$$: Cuantil condicional de orden $$\tau \in (0,1)$$
 
-Este modelo nos permitirá estudiar, por ejemplo, si los hogares que enfrentan las tasas de inflación más altas (e.g. el percentil 90 de la distribución) comparten características distintas respecto a aquellos con menor inflación experimentada (e.g. percentil 10), lo que proporciona evidencia sobre los mecanismos detrás de la desigualdad inflacionaria.
-
+Este enfoque permite evaluar si la sensibilidad del gasto frente a la inflación varía a lo largo de su distribución —por ejemplo, si los hogares con menor gasto reducen más su consumo ante mayores tasas de inflación que los hogares con mayor gasto. Esto proporciona evidencia sobre el potencial efecto regresivo de la inflación, especialmente en regímenes de alta inflación.
 
 
 ## Revisión de Literatura
