@@ -27,7 +27,7 @@ Este índice permite observar cómo varía la inflación experimentada entre hog
 
 ## Análisis Econométrico Preliminar
 
-Como parte del análisis de las implicaciones distributivas de la inflación, proponemos estimar una regresión cuantílica que relacione la inflación individualizada de los hogares con sus características observables. Este enfoque permite capturar cómo varían los determinantes de la inflación experimentada a lo largo de la distribución condicional de dicha variable, y no únicamente en su media, como en los modelos tradicionales de mínimos cuadrados ordinarios (MCO).
+Como parte del análisis de las implicaciones distributivas de la inflación, proponemos estimar una regresión cuantílica que relacione la inflación individualizada de los hogares con sus características observables. Este enfoque permite capturar cómo varían los determinantes de la inflación experimentada a lo largo de la distribución condicional.
 
 La especificación general del modelo a estimar es:
 
