@@ -1,6 +1,6 @@
-# Inflación a Nivel Hogar
+# Dinámica Inflacionaria a Nivel Hogar
 
-Proyecto Econométrico (CIDE-ME): Cálculo de inflación a nivel hogar
+Proyecto Econométrico (CIDE-ME)
 
 ## Revisión de Literatura
 
