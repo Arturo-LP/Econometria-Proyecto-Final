@@ -9,18 +9,18 @@ Con el objetivo de capturar la heterogeneidad en las experiencias inflacionarias
 El procedimiento consiste en ponderar las tasas de inflación por rubro según la estructura de gasto observada a nivel hogar. Formalmente, para cada hogar $$h$$ en el periodo $$t$$, el índice de inflación individualizada se define como:
 
 $$
-\pi_{h,t-k,t} = \sum_{i=1}^{n} w_{h,i} \cdot \pi_{i,t-k,t}^{e}
+\pi_{h, t, t-k} = \sum_{i=1}^{n} w_{h,i} \cdot \pi_{i, t, t-k}^{e}
 $$
 
 donde:
 
-- $$\pi_{h,t-k,t}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
+- $$\pi_{h, t, t-k}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
 - $$w_{h,i}$$: Participación del rubro $$i$$ en el gasto total del hogar $$h$$
-- $$\pi_{i,t-k,t}^{e}$$: Tasa de inflación del rubro $$i$$ en la entidad federativa $$e$$ donde reside el hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
+- $$\pi_{i, t, t-k}^{e}$$: Tasa de inflación del rubro $$i$$ en la entidad federativa $$e$$ donde reside el hogar $$h$$ en el periodo $$t$$ con periodo base $$t-k$$
 
 Cada vector de ponderaciones $$w_{h} = (w_{h,1}, w_{h,2}, \dots, w_{h,n})$$ fue construido a partir de los gastos trimestrales reportados por hogar en los rubros disponibles en ENIGH, normalizados como proporciones del gasto total.
 
-Por su parte, las tasas de inflación $$\pi_{i,t-k,t}^{e}$$ fueron obtenidas a partir del INPC publicado por el INEGI, considerando la desagregación regional y por rubro de gasto.
+Por su parte, las tasas de inflación $$\pi_{i, t, t-k}^{e}$$ fueron obtenidas a partir del INPC publicado por el INEGI, considerando la desagregación regional y por rubro de gasto.
 
 Este índice permite observar cómo varía la inflación experimentada entre hogares con distintos niveles de ingreso, estructura de consumo y ubicación geográfica, superando las limitaciones del enfoque tradicional que utiliza un índice de precios promedio nacional y homogéneo.
 
@@ -32,14 +32,14 @@ Como parte del análisis de las implicaciones distributivas de la inflación, pr
 La especificación general del modelo a estimar es:
 
 $$
-Q_\tau(g_{h,t} \mid \pi_{h,t}, X_{h,t}) = \alpha_\tau + \delta_\tau \pi_{h,t} + X_{h,t}'\beta_\tau
+Q_\tau(g_{h,t} \mid \pi_{h, t, t-k}, X_{h,t}) = \alpha_\tau + \delta_\tau \pi_{h, t, t-k} + X_{h,t}'\beta_\tau + \epsilon_\tau
 $$
 
 donde:
 
-- $$g_{h,t}$$: Gasto total (mensual o trimestral) del hogar $$h$$ en el periodo $$t$$
-- $$\pi_{h,t}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$
-- $$X_{h,t}$$: Vector de controles observables del hogar (ingreso, tamaño, ubicación, tipo de ocupación, nivel educativo, entre otros)
+- $$g_{h,t}$$: Gasto monetario trimestral del hogar $$h$$ en el periodo $$t$$
+- $$\pi_{h, t, t-k}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$ con base $$t-k$$
+- $$X_{h,t}$$: Vector de controles observables del hogar
 - $$\delta_\tau$$: Coeficiente que captura el efecto de la inflación sobre el gasto en el cuantil $$\tau$$
 - $$\beta_\tau$$: Coeficientes específicos al cuantil $$\tau$$ para las covariables
 - $$Q_\tau(\cdot)$$: Cuantil condicional de orden $$\tau \in (0,1)$$
