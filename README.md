@@ -1,6 +1,6 @@
 # Inflación a Nivel Hogar
 
-Proyecto Econométrico (CIDE-ME,2025): Experiencia Inflacionaria a Nivel Hogar
+Proyecto Econométrico (CIDE-ME, 2025): Experiencia Inflacionaria a Nivel Hogar
 
 ## Revisión de Literatura
 
