@@ -25,7 +25,7 @@ Por su parte, las tasas de inflación $$\pi_{i,t-k,t}^{e}$$ fueron obtenidas a p
 Este índice permite observar cómo varía la inflación experimentada entre hogares con distintos niveles de ingreso, estructura de consumo y ubicación geográfica, superando las limitaciones del enfoque tradicional que utiliza un índice de precios promedio nacional y homogéneo.
 
 
-## Análisis econométrico preliminar
+## Análisis Econométrico Preliminar
 
 Como parte del análisis de las implicaciones distributivas de la inflación, proponemos estimar una regresión cuantílica que relacione la inflación individualizada de los hogares con sus características observables. Este enfoque permite capturar cómo varían los determinantes de la inflación experimentada a lo largo de la distribución condicional de dicha variable, y no únicamente en su media, como en los modelos tradicionales de mínimos cuadrados ordinarios (MCO).
 
