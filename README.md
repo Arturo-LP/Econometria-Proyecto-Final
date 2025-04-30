@@ -44,8 +44,6 @@ donde:
 - $$\beta_\tau$$: Coeficientes específicos al cuantil $$\tau$$ para las covariables
 - $$Q_\tau(\cdot)$$: Cuantil condicional de orden $$\tau \in (0,1)$$
 
-Este enfoque permite evaluar si la sensibilidad del gasto frente a la inflación varía a lo largo de su distribución —por ejemplo, si los hogares con menor gasto reducen más su consumo ante mayores tasas de inflación que los hogares con mayor gasto. Esto proporciona evidencia sobre el potencial efecto regresivo de la inflación, especialmente en regímenes de alta inflación.
-
 
 ## Revisión de Literatura
 
