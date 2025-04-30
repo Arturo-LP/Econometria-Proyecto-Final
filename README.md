@@ -21,19 +21,19 @@ Con el objetivo de capturar la heterogeneidad en las experiencias inflacionarias
 
 El procedimiento consiste en ponderar las tasas de inflación por rubro según la estructura de gasto observada a nivel hogar. Formalmente, para cada hogar \( h \) en el periodo \( t \), el índice de inflación individualizada se define como:
 
-\[
+$$
 \pi_{h,t} = \sum_{i=1}^{n} w_{h,i} \cdot \pi_{i,t}^{(r)}
-\]
+$$
 
 donde:
 
-- \( \pi_{h,t} \): Tasa de inflación individualizada del hogar \( h \) en el periodo \( t \)
-- \( w_{h,i} \): Participación del rubro \( i \) en el gasto total del hogar \( h \)
-- \( \pi_{i,t}^{(r)} \): Tasa de inflación del rubro \( i \) en la entidad federativa \( r \) donde reside el hogar \( h \)
+- $ \pi_{h,t} $: Tasa de inflación individualizada del hogar $ h $ en el periodo $ t $
+- $ w_{h,i} $: Participación del rubro $ i $ en el gasto total del hogar $ h $
+- $ \pi_{i,t}^{(r)} $: Tasa de inflación del rubro $ i $ en la entidad federativa $ r $ donde reside el hogar $ h $
 
-Cada vector de ponderaciones \( w_{h} = (w_{h,1}, w_{h,2}, \dots, w_{h,n}) \) fue construido a partir de los gastos trimestrales reportados por hogar en los rubros disponibles en ENIGH, normalizados como proporciones del gasto total.
+Cada vector de ponderaciones $ w_{h} = (w_{h,1}, w_{h,2}, \dots, w_{h,n}) $ fue construido a partir de los gastos trimestrales reportados por hogar en los rubros disponibles en ENIGH, normalizados como proporciones del gasto total.
 
-Por su parte, las tasas de inflación \( \pi_{i,t}^{(r)} \) fueron obtenidas a partir del INPC publicado por el INEGI, considerando la desagregación regional y por rubro de gasto.
+Por su parte, las tasas de inflación $ \pi_{i,t}^{(r)} $ fueron obtenidas a partir del INPC publicado por el INEGI, considerando la desagregación regional y por rubro de gasto.
 
 Este índice permite observar cómo varía la inflación experimentada entre hogares con distintos niveles de ingreso, estructura de consumo y ubicación geográfica, superando las limitaciones del enfoque tradicional que utiliza un índice de precios promedio nacional y homogéneo.
 
