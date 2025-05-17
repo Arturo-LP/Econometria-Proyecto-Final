@@ -24,27 +24,6 @@ Por su parte, las tasas de inflación $$\pi_{i, t, t-k}^{e}$$ fueron obtenidas a
 
 Este índice permite observar cómo varía la inflación experimentada entre hogares con distintos niveles de ingreso, estructura de consumo y ubicación geográfica, superando las limitaciones del enfoque tradicional que utiliza un índice de precios promedio nacional y homogéneo.
 
-
-## Análisis Econométrico Preliminar
-
-Como parte del análisis de las implicaciones distributivas de la inflación, proponemos estimar una regresión cuantílica que relacione la inflación individualizada de los hogares con sus características observables. Este enfoque permite capturar cómo varían los determinantes de la inflación experimentada a lo largo de la distribución condicional.
-
-La especificación general del modelo a estimar es:
-
-$$
-Q_\tau(g_{h,t} \mid \pi_{h, t, t-k}, X_{h,t}) = \alpha_\tau + \delta_\tau \pi_{h, t, t-k} + X_{h,t}'\beta_\tau + \epsilon_\tau
-$$
-
-donde:
-
-- $$g_{h,t}$$: Gasto monetario trimestral del hogar $$h$$ en el periodo $$t$$
-- $$\pi_{h, t, t-k}$$: Tasa de inflación individualizada del hogar $$h$$ en el periodo $$t$$ con base $$t-k$$
-- $$X_{h,t}$$: Vector de controles observables del hogar
-- $$\delta_\tau$$: Coeficiente que captura el efecto de la inflación sobre el gasto en el cuantil $$\tau$$
-- $$\beta_\tau$$: Coeficientes específicos al cuantil $$\tau$$ para las covariables
-- $$Q_\tau(\cdot)$$: Cuantil condicional de orden $$\tau \in (0,1)$$
-
-
 ## Revisión de Literatura
 
 **Inflación y patrones de consumo diferenciados**
