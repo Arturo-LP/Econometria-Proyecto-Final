@@ -1,0 +1,1106 @@
+---
+title: "Inflación a Nivel Hogar"
+subtitle: "Dinámica del Gasto ante un Entorno Inflacionario (2018 - 2022)"
+author:  "Arturo López"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cerulean
+    highlight: kate #kate breezedark zenburn
+    toc: true
+    toc_float: true
+---
+
+<style>
+body {
+  background-color: #ffffff; /* gris azulado sobrio (f7f9fb) */
+  color: #2c3e50;            /* texto en azul oscuro flatly */
+
+}
+h1, h2, h3, h4, h5, h6 {
+  color: #003366 !important; /* Azul oscuro */
+}
+div#TOC {
+  background-color: #ffffff;            /* blanco puro */
+  border-left: 4px solid #2c3e50;       /* azul oscuro flatly */
+  padding: 16px 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+}
+div#TOC h2 {
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 0;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 4px;
+}
+div#TOC ul li a {
+  color: #2c3e50 !important;
+  text-decoration: none;
+  font-weight: normal;
+}
+/* Estilo para el contenedor flotante del TOC */
+.list-group-item.active, 
+.list-group-item.active:focus, 
+.list-group-item.active:hover {
+  background-color: #2c3e50;
+  border-color: #2c3e50;
+}
+</style>
+
+# Sitio web del proyecto
+[Repositorio en GitHub](https://github.com/Arturo-LP/Inflacion-Nivel-Hogar)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, results = 'hold')
+```
+
+```{r, echo = FALSE}
+# Librerías (ENIGH)
+library(tidyverse)
+library(srvyr)
+library(kableExtra)
+library(patchwork)
+library(survey)
+library(ggplot2)
+library(scales)
+library(readr)
+library(janitor)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+# Aumentar el timeout para permitir descargas grandes
+options(timeout = 600)
+# Ajustar la varianza cuando hay algún estrato con una sola PSU
+options(survey.lonely.psu = "adjust")
+```
+
+# Ponderadores de Gasto
+
+## Introducción
+Obtendremos los ponderadores de gasto a nivel hogar a partir de la Encuesta Nacional de Ingresos y Gastos de los Hogares (ENIGH) para los periodos 2018, 2020 y 2022.
+
+## Procesamiento de Datos
+
+### Funciones y variables para procesamiento de datos
+```{r}
+# Etiquetas para estados
+codigo_a_nombre <- c(
+  "01" = "Aguascalientes", "02" = "Baja California", "03" = "Baja California Sur",
+  "04" = "Campeche", "05" = "Coahuila de Zaragoza", "06" = "Colima", "07" = "Chiapas",
+  "08" = "Chihuahua", "09" = "Ciudad de México", "10" = "Durango",
+  "11" = "Guanajuato", "12" = "Guerrero", "13" = "Hidalgo", "14" = "Jalisco",
+  "15" = "Estado de México", "16" = "Michoacán de Ocampo", "17" = "Morelos", "18" = "Nayarit",
+  "19" = "Nuevo León", "20" = "Oaxaca", "21" = "Puebla", "22" = "Querétaro",
+  "23" = "Quintana Roo", "24" = "San Luis Potosí", "25" = "Sinaloa", "26" = "Sonora",
+  "27" = "Tabasco", "28" = "Tamaulipas", "29" = "Tlaxcala", "30" = "Veracruz de Ignacio de la Llave",
+  "31" = "Yucatán", "32" = "Zacatecas"
+)
+
+# Función para preparar la base
+preparar_base_enigh <- function(enigh_df, periodo) {
+  # Seleccionar y procesar variables en una sola operación
+  base <- enigh_df %>%
+    transmute(
+      # Variables para el diseño muestral
+      upm,           # Unidad Primaria de Muestreo
+      est_dis,       # Estrato de diseño muestral
+      factor,        # Factor de expansión
+      
+      # Clave para identificar al hogar
+      clave_hogar = paste(ubica_geo, upm, est_dis, folioviv, foliohog, sep = "_"),
+      
+      # Estado y periodo
+      id_edo = substr(ubica_geo, 1, 2),
+      edo = codigo_a_nombre[id_edo],
+      periodo = periodo,
+      
+      # Variables de ingreso y gasto
+      ing_cor, 
+      gasto_mon, 
+      
+      # Proporciones de gasto calculadas directamente
+      prop_alimentos = alimentos / gasto_mon,
+      prop_vesti_calz = vesti_calz / gasto_mon,
+      prop_vivienda = vivienda / gasto_mon,
+      prop_limpieza = limpieza / gasto_mon,
+      prop_salud = salud / gasto_mon,
+      prop_transporte = transporte / gasto_mon,
+      prop_educ_espa = educa_espa / gasto_mon,
+      prop_cuid_personal = (cuida_pers + acces_pers) / gasto_mon,
+      prop_otros_gas = (otros_gas + transf_gas) / gasto_mon
+    )
+  
+  # Crear diseño muestral y calcular decil
+  base <- base %>%
+    as_survey_design(id = upm, strata = est_dis, weights = factor, nest = TRUE) %>%
+    mutate(decil = ntile(ing_cor, 10)) %>%
+    as_tibble()
+  
+  return(base)
+}
+
+```
+
+### Consolidación de la base
+```{r}
+# Descargar ENIGH 2018, 2020 y 2022
+print("Descargando tablas de concetradohogar en format .sav...")
+enigh2018 <- importinegi::enigh(2018, "concentradohogar", formato = "sav")
+enigh2020 <- importinegi::enigh(2020, "concentradohogar", formato = "sav")
+enigh2022 <- importinegi::enigh(2022, "concentradohogar", formato = "sav")
+print("Descarga Completa")
+
+# Preparar ambas bases
+print("Preparando Base General...")
+base_2018 <- preparar_base_enigh(enigh2018, 2018)
+base_2020 <- preparar_base_enigh(enigh2020, 2020)
+base_2022 <- preparar_base_enigh(enigh2022, 2022)
+
+# Combinar 
+base_general <- bind_rows(base_2018, base_2020, base_2022)
+print("Base General Completa")
+
+# Crear diseño muestral complejo con la base general
+print("Construyendo diseño muestral...")
+diseno_enigh <- base_general %>%
+  as_survey_design(
+    id = upm,
+    strata = est_dis,
+    weights = factor,
+    nest = TRUE
+  )
+
+# Check (tiene que dar 100 con se casi 0)
+check <- diseno_enigh %>%
+  summarise(
+    suma_ponderada = survey_mean(
+      prop_alimentos +
+        prop_vesti_calz +
+        prop_vivienda +
+        prop_limpieza +
+        prop_salud +
+        prop_transporte +
+        prop_educ_espa +
+        prop_cuid_personal +
+        prop_otros_gas,
+      na.rm = TRUE
+    ) * 100
+  )
+
+if (abs(check$suma_ponderada - 100) < 1e-6) {
+  print("Diseño muestral completado correctamente.")
+} else {
+  warning("Error en cálculo de ponderadores: suma ponderada != 1.")
+}
+
+head(base_general)
+```
+## Exploración de la Base General y Diseño Muestral
+
+### Estadísticas del Diseño Muestral
+
+```{r}
+# Resumen del diseño muestral - ENIGH 2018
+diseno_2018 <- base_2018 %>%
+  as_survey_design(
+    id = upm,
+    strata = est_dis,
+    weights = factor,
+    nest = TRUE
+  )
+
+resumen_2018 <- data.frame(
+  Característica = c(
+    "Número de estratos", 
+    "Número de UPMs", 
+    "Tamaño de muestra", 
+    "Población estimada",
+    "Periodo de levantamiento",
+    "Rango de factores de expansión",
+    "DEFF promedio"
+  ),
+  Valor = c(
+    length(unique(diseno_2018$variables$est_dis)), 
+    length(unique(diseno_2018$variables$upm)), 
+    nrow(diseno_2018$variables), 
+    format(sum(diseno_2018$variables$factor), big.mark = ","),
+    "2018",
+    paste0(format(min(diseno_2018$variables$factor), big.mark = ","), " - ", 
+           format(max(diseno_2018$variables$factor), big.mark = ",")),
+    round(mean(diseno_2018$variables$factor^2) /
+            mean(diseno_2018$variables$factor)^2 *
+            (length(unique(diseno_2018$variables$upm)) - 1) /
+            (length(unique(diseno_2018$variables$upm))), 2)
+  )
+)
+
+resumen_2018 %>%
+  kbl(caption = "Resumen del Diseño Muestral ENIGH 2018") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, bold = TRUE, color = "navy") %>%
+  column_spec(2, color = "black")
+```
+
+```{r}
+# Resumen del diseño muestral - ENIGH 2020
+diseno_2020 <- base_2020 %>%
+  as_survey_design(
+    id = upm,
+    strata = est_dis,
+    weights = factor,
+    nest = TRUE
+  )
+
+resumen_2020 <- data.frame(
+  Característica = c(
+    "Número de estratos", 
+    "Número de UPMs", 
+    "Tamaño de muestra", 
+    "Población estimada",
+    "Periodo de levantamiento",
+    "Rango de factores de expansión",
+    "DEFF promedio"
+  ),
+  Valor = c(
+    length(unique(diseno_2020$variables$est_dis)), 
+    length(unique(diseno_2020$variables$upm)), 
+    nrow(diseno_2020$variables), 
+    format(sum(diseno_2020$variables$factor), big.mark = ","),
+    "2018",
+    paste0(format(min(diseno_2020$variables$factor), big.mark = ","), " - ", 
+           format(max(diseno_2020$variables$factor), big.mark = ",")),
+    round(mean(diseno_2020$variables$factor^2) /
+            mean(diseno_2020$variables$factor)^2 *
+            (length(unique(diseno_2020$variables$upm)) - 1) /
+            (length(unique(diseno_2020$variables$upm))), 2)
+  )
+)
+
+resumen_2020 %>%
+  kbl(caption = "Resumen del Diseño Muestral ENIGH 2020") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, bold = TRUE, color = "navy") %>%
+  column_spec(2, color = "black")
+```
+
+```{r}
+# Resumen del diseño muestral - ENIGH 2022
+diseno_2022 <- base_2022 %>%
+  as_survey_design(
+    id = upm,
+    strata = est_dis,
+    weights = factor,
+    nest = TRUE
+  )
+
+resumen_2022 <- data.frame(
+  Característica = c(
+    "Número de estratos", 
+    "Número de UPMs", 
+    "Tamaño de muestra", 
+    "Población estimada",
+    "Periodo de levantamiento",
+    "Rango de factores de expansión",
+    "DEFF promedio"
+  ),
+  Valor = c(
+    length(unique(diseno_2022$variables$est_dis)), 
+    length(unique(diseno_2022$variables$upm)), 
+    nrow(diseno_2022$variables), 
+    format(sum(diseno_2022$variables$factor), big.mark = ","),
+    "2018",
+    paste0(format(min(diseno_2022$variables$factor), big.mark = ","), " - ", 
+           format(max(diseno_2022$variables$factor), big.mark = ",")),
+    round(mean(diseno_2022$variables$factor^2) /
+            mean(diseno_2022$variables$factor)^2 *
+            (length(unique(diseno_2022$variables$upm)) - 1) /
+            (length(unique(diseno_2022$variables$upm))), 2)
+  )
+)
+
+resumen_2022 %>%
+  kbl(caption = "Resumen del Diseño Muestral ENIGH 2022") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = FALSE, position = "center") %>%
+  column_spec(1, bold = TRUE, color = "navy") %>%
+  column_spec(2, color = "black")
+```
+
+### Distribución de los Factores de Expansión
+```{r}
+# Gráfico de distribución de factores de expansión - ENIGH 2018
+diseno_2018$variables %>%
+  ggplot(aes(x = factor)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white", alpha = 0.7) +
+  scale_x_log10(labels = scales::comma) +
+  labs(
+    title = "Distribución de Factores de Expansión - ENIGH 2018",
+    x = "Factor de Expansión (escala logarítmica)",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Gráfico de distribución de factores de expansión - ENIGH 2022
+diseno_2022$variables %>%
+  ggplot(aes(x = factor)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white", alpha = 0.7) +
+  scale_x_log10(labels = scales::comma) +
+  labs(
+    title = "Distribución de Factores de Expansión - ENIGH 2022",
+    x = "Factor de Expansión (escala logarítmica)",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+```
+
+### Distribución Geográfica de la Muestra
+
+```{r, fig.width=8, fig.height=5}
+  diseno_enigh$variables %>%
+    filter(periodo == 2018) %>%
+    group_by(edo) %>%
+    summarise(
+      n_hogares = n(),
+      pob_estimada = sum(factor)
+    ) %>%
+    arrange(desc(pob_estimada)) %>%
+    slice_head(n = 10) %>%
+    ggplot(aes(x = reorder(edo, pob_estimada), y = pob_estimada/1000000)) +
+    geom_col(fill = "darkblue", alpha = 0.7) +
+    coord_flip() +
+    scale_y_continuous(labels = function(x) paste0(x, "M")) +
+    labs(
+      title = "Los 10 estados con mayor población representada - ENIGH 2018",
+      x = "",
+      y = "Población estimada (millones)"
+    ) +
+    theme_minimal()
+```
+
+```{r, fig.width=8, fig.height=5}
+  diseno_enigh$variables %>%
+    filter(periodo == 2022) %>%
+    group_by(edo) %>%
+    summarise(
+      n_hogares = n(),
+      pob_estimada = sum(factor)
+    ) %>%
+    arrange(desc(pob_estimada)) %>%
+    slice_head(n = 10) %>%
+    ggplot(aes(x = reorder(edo, pob_estimada), y = pob_estimada/1000000)) +
+    geom_col(fill = "darkblue", alpha = 0.7) +
+    coord_flip() +
+    scale_y_continuous(labels = function(x) paste0(x, "M")) +
+    labs(
+      title = "Los 10 estados con mayor población representada - ENIGH 2022",
+      x = "",
+      y = "Población estimada (millones)"
+    ) +
+    theme_minimal()
+```
+
+### Estructura del Gasto entre Periodos
+
+**Proporción del gasto en alimentos por estado y periodo**
+
+```{r, fig.height=18, fig.width=9}
+# Calcular proporciones por estado y periodo
+datos_para_grafico <- diseno_enigh %>%
+  group_by(periodo, edo) %>%
+  summarise(
+    prop_media = survey_mean(prop_alimentos, na.rm = TRUE) * 100,
+    .groups = "drop"
+  )
+
+# Crear un gráfico por periodo
+plots_por_periodo <- unique(datos_para_grafico$periodo) %>%
+  purrr::map(~ {
+    ggplot(
+      datos_para_grafico %>% filter(periodo == .x),
+      aes(x = reorder(edo, prop_media), y = prop_media)
+    ) +
+      geom_col(fill = "steelblue", alpha = 0.8) +
+      coord_flip() +
+      labs(
+        title = paste("ENIGH", .x),
+        x = "Estado",
+        y = "Proporción del gasto (%)"
+      ) +
+      scale_y_continuous(limits = c(0, max(datos_para_grafico$prop_media)), labels = function(x) paste0(x, "%")) +
+      theme_minimal(base_size = 12) +
+      theme(
+        axis.text.x = element_text(size = 9),
+        plot.title = element_text(face = "bold", size = 14),
+        plot.margin = margin(10, 10, 10, 10)
+      )
+  })
+
+# Ensamblar los gráficos (uno por fila)
+wrap_plots(plots_por_periodo, ncol = 1) +
+  plot_annotation(
+    title = "Proporción del gasto en alimentos por estado y periodo",
+    caption = "Fuente: Elaboración propia con datos de la ENIGH, INEGI.",
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, hjust = 0, margin = margin(t = 10))
+    )
+  )
+```
+**Proporción del gasto en vivienda por estado y periodo**
+
+```{r, fig.height=18, fig.width=9}
+# Calcular proporciones por estado y periodo
+datos_para_grafico <- diseno_enigh %>%
+  group_by(periodo, edo) %>%
+  summarise(
+    prop_media = survey_mean(prop_vivienda, na.rm = TRUE) * 100,
+    .groups = "drop"
+  )
+
+# Crear un gráfico por periodo
+plots_por_periodo <- unique(datos_para_grafico$periodo) %>%
+  purrr::map(~ {
+    ggplot(
+      datos_para_grafico %>% filter(periodo == .x),
+      aes(x = reorder(edo, prop_media), y = prop_media)
+    ) +
+      geom_col(fill = "steelblue", alpha = 0.8) +
+      coord_flip() +
+      labs(
+        title = paste("ENIGH", .x),
+        x = "Estado",
+        y = "Proporción del gasto (%)"
+      ) +
+      scale_y_continuous(limits = c(0, max(datos_para_grafico$prop_media)), labels = function(x) paste0(x, "%")) +
+      theme_minimal(base_size = 12) +
+      theme(
+        axis.text.x = element_text(size = 9),
+        plot.title = element_text(face = "bold", size = 14),
+        plot.margin = margin(10, 10, 10, 10)
+      )
+  })
+
+# Ensamblar los gráficos (uno por fila)
+wrap_plots(plots_por_periodo, ncol = 1) +
+  plot_annotation(
+    title = "Proporción del gasto en vivienda por estado y periodo",
+    caption = "Fuente: Elaboración propia con datos de la ENIGH, INEGI.",
+    theme = theme(
+      plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 10, hjust = 0, margin = margin(t = 10))
+    )
+  )
+```
+
+
+# INPC por Entidad Federativa
+
+## Introducción
+Calcularemos la inflación estatal a partir del INPC por entidad federativa. Las bases de datos se importarán desde el [repositorio en GitHub](https://github.com/Arturo-LP/Inflacion-Nivel-Hogar).
+
+
+## Procesamiento de Datos
+
+```{r}
+print("Importando bases de datos desde GitHub...")
+
+# Funciones y variables
+
+# Diccionario de nombres en sincronía con el archivo de ENIGH
+nombres_subindices <- c(
+  "inpc_general",
+  "inpc_alimentos",
+  "inpc_vesti_calz",
+  "inpc_vivienda",
+  "inpc_limpieza",
+  "inpc_salud",
+  "inpc_cuid_personal",
+  "inpc_transporte",
+  "inpc_educ_espa",
+  "inpc_otros_gas"
+)
+
+# Diccionario de códigos a nombres de estado
+codigo_a_nombre <- c(
+  "01" = "Aguascalientes", "02" = "Baja California", "03" = "Baja California Sur",
+  "04" = "Campeche", "05" = "Coahuila de Zaragoza", "06" = "Colima", "07" = "Chiapas",
+  "08" = "Chihuahua", "09" = "Ciudad de México", "10" = "Durango",
+  "11" = "Guanajuato", "12" = "Guerrero", "13" = "Hidalgo", "14" = "Jalisco",
+  "15" = "Estado de México", "16" = "Michoacán de Ocampo", "17" = "Morelos", "18" = "Nayarit",
+  "19" = "Nuevo León", "20" = "Oaxaca", "21" = "Puebla", "22" = "Querétaro",
+  "23" = "Quintana Roo", "24" = "San Luis Potosí", "25" = "Sinaloa", "26" = "Sonora",
+  "27" = "Tabasco", "28" = "Tamaulipas", "29" = "Tlaxcala", "30" = "Veracruz de Ignacio de la Llave",
+  "31" = "Yucatán", "32" = "Zacatecas"
+)
+
+# Función para leer y limpiar cada archivo
+leer_inpc_estado <- function(archivo) {
+  # Extraer código y nombre del estado
+  codigo <- str_extract(basename(archivo), "(?<=INPC_)[0-9]{2}")
+  edo <- codigo_a_nombre[codigo]
+  
+  # Encabezado en sincronía con el script de ENIGH
+  encabezado_limpio <- c("fecha", nombres_subindices)
+  
+  # Leer datos desde fila 21 (índices válidos, jul-18 en adelante)
+  datos <- read_csv(
+    archivo,
+    skip = 20,
+    col_names = encabezado_limpio,
+    locale = locale(encoding = "Latin1"),
+    show_col_types = FALSE,
+    col_types = cols(
+      fecha = col_character(), .default = col_double()
+    )
+  )
+  
+  # Diccionario para convertir abreviaturas de meses en español a números
+  # Esto elimina los errores de codificación y parsing
+  meses_es_a_num <- c(
+    "Ene" = "01", "Feb" = "02", "Mar" = "03", "Abr" = "04", 
+    "May" = "05", "Jun" = "06", "Jul" = "07", "Ago" = "08", 
+    "Sep" = "09", "Oct" = "10", "Nov" = "11", "Dic" = "12"
+  )
+  
+  # Función para convertir formatos "Jul 2018" a "2018-07-01"
+  convertir_fecha <- function(fecha_texto) {
+    partes <- str_split(fecha_texto, " ", simplify = TRUE)
+    mes_abr <- partes[, 1]
+    anio <- partes[, 2]
+    mes_num <- meses_es_a_num[mes_abr]
+    fecha_iso <- paste0(anio, "-", mes_num, "-01") # Primer día del mes
+    return(as.Date(fecha_iso))
+  }
+  
+  # Aplicar transformaciones
+  datos_procesados <- datos %>%
+    mutate(
+      fecha = convertir_fecha(fecha),
+      edo = edo
+    ) %>%
+    pivot_longer(
+      cols = starts_with("inpc_"),
+      names_to = "rubro",
+      values_to = "inpc"
+    ) %>%
+    filter(!is.na(inpc)) %>%
+    select(fecha, edo, rubro, inpc)
+  
+  return(datos_procesados)
+}
+
+# Códigos de entidad (01 a 32)
+id_edos <- sprintf("%02d", 1:32)
+
+# Sufijos de estado
+edos <- c(
+  "Ags", "BC", "BCS", "CAMP", "COA", "COL", "CHIAP", "CHIH", "CDMX", "DUR",
+  "GTO", "GRO", "HGO", "JAL", "MEX", "MICH", "MOR", "NAY", "NL", "OAX",
+  "PUE", "QRO", "QROO", "SLP", "SIN", "SON", "TAB", "TAM", "TLAX", "VER",
+  "YUC", "ZAC"
+)
+
+# URLs desde GitHub (formato "raw")
+archivos_csv <- paste0(
+  "https://github.com/Arturo-LP/Inflacion-Nivel-Hogar/raw/main/INPC-Estatal/INPC_",
+  id_edos, "_", edos, ".CSV"
+)
+# Leer todos los archivos desde GitHub y crear el data frame
+inpc_estatal <- map_dfr(archivos_csv, leer_inpc_estado)
+
+print("Bases de datos importadas con éxito.")
+```
+
+```{r}
+print("Procesando el data frame inflacion...")
+
+# Indicadores de Inflación
+
+# Fechas de interés
+fecha_base <- as.Date("2018-07-01")
+fecha_2020 <- as.Date("2020-07-01")
+fecha_2022 <- as.Date("2022-07-01")
+
+# Data fram filtrado
+inpc_filtrado <- inpc_estatal %>%
+  filter(fecha %in% c(fecha_base, fecha_2020, fecha_2022))
+
+# Convertir a formato ancho
+inpc_ancho <- inpc_filtrado %>%
+  mutate(
+    periodo = format(fecha, "%Y_%m")
+  ) %>%
+  select(edo, rubro, periodo, inpc) %>%
+  pivot_wider(
+    names_from = periodo,
+    values_from = inpc,
+    names_prefix = "inpc_"
+  )
+
+### Indicadores a calcular:
+# Inflación acumulada hasta 2020 y 2022
+# Tasa de Inflación Media Anual Compuesta (TMAC)
+
+inflacion <- inpc_ancho %>%
+  mutate(
+    # Inflación simple entre períodos específicos
+    inflacion_2018_2020 = (inpc_2020_07 / inpc_2018_07) - 1, # inflación acumulada
+    inflacion_2018_2022 = (inpc_2022_07 / inpc_2018_07) - 1, # inflación acumulada
+# TMAC: Tasa Media Anual Compuesta
+# Fórmula: (Valor final / Valor inicial)^(1/n) - 1
+# donde n es el número de años
+    
+    # Para el período 2018-2020 (2 años)
+    tmac_2018_2020 = (inpc_2020_07 / inpc_2018_07)^(1/2) - 1,
+    
+    # Para el período 2018-2022 (4 años)
+    tmac_2018_2022 = (inpc_2022_07 / inpc_2018_07)^(1/4) - 1
+  ) %>%
+  select(edo, rubro, inflacion_2018_2020, inflacion_2018_2022, tmac_2018_2020, tmac_2018_2022)
+
+print("Data frame inflacion completado con éxito.")
+
+head(inflacion)
+```
+
+## Análisis Gráfico
+
+### Inflación Acumulada entre 2018 y 2020
+
+```{r}
+for (r in nombres_subindices) {
+  inflacion %>%
+    filter(rubro == r) %>%
+    ggplot(aes(x = reorder(edo, inflacion_2018_2020), y = inflacion_2018_2020 * 100)) +
+    geom_col(fill = "steelblue", alpha = 0.8) +
+    coord_flip() +
+    labs(
+      title = paste("Inflación Acumulada 2018–2020:", r),
+      x = "Estado",
+      y = "Inflación acumulada"
+    ) +
+    theme_minimal(base_size = 13) -> p_acumulada
+  
+  print(p_acumulada)
+}
+```
+
+### Tasa de Inflación Anual Compuesta entre 2018 y 2020
+
+```{r}
+for (r in nombres_subindices) {
+  inflacion %>%
+    filter(rubro == r) %>%
+    ggplot(aes(x = reorder(edo, tmac_2018_2020), y = tmac_2018_2020 * 100)) +
+    geom_col(fill = "steelblue", alpha = 0.8) +
+    coord_flip() +
+    labs(
+      title = paste("Tasa de Inflación Anual Compuesta 2018–2020:", r),
+      x = "Estado",
+      y = "Tasa de Inflación Anual Compuesta"
+    ) +
+    theme_minimal(base_size = 13) -> p_compuesta
+  
+  print(p_compuesta)
+}
+
+```
+
+# Índice de Laspeyres por Hogar
+
+## Introducción
+En esta sección, calcularemos la tasa de inflación anual compuesta por hogar a partir de una suma ponderada del vector de gasto proporcional por hogar y la tasa de inflación anual compuesta estatal por rubro de gasto.
+
+## Procesamiento de Datos
+
+```{r}
+print("Procesando el data frame laspeyres_hogar...")
+
+# Preparamos la estructura de gasto para cada hogar
+
+# Usamos directamente todas las variables del objeto diseno_enigh
+estructura_gasto <- diseno_enigh$variables %>%
+  # Calculamos la suma de proporciones para verificación
+  mutate(
+    suma_props = prop_alimentos + prop_vesti_calz + prop_vivienda + prop_limpieza +
+      prop_salud + prop_transporte + prop_educ_espa + prop_cuid_personal + prop_otros_gas
+  )
+
+# Verificamos si hay hogares con proporciones que no sumen exactamente 1
+hogares_con_problemas <- estructura_gasto %>%
+  filter(abs(suma_props - 1) > 0.001) %>%  # Tolerancia de 0.1%
+  select(clave_hogar, suma_props)
+
+# Mostramos advertencia si encontramos casos
+if(nrow(hogares_con_problemas) > 0) {
+  warning(paste("Se encontraron", nrow(hogares_con_problemas), 
+                "hogares cuyas proporciones de gasto no suman exactamente 1 (+/- 0.1%)"))
+  # Mostrar los primeros 5 ejemplos
+  print(head(hogares_con_problemas, 5))
+} else {
+  message("Todo bien")
+}
+
+# Ahora solo normalizamos las proporciones para asegurar que sumen exactamente 1
+estructura_gasto <- estructura_gasto %>%
+  mutate(
+    # Normalizar en caso de que no sumen exactamente 1
+    across(starts_with("prop_"), ~ .x / suma_props)
+  ) %>%
+  select(-suma_props)
+
+# Convertimos de formato ancho a largo para facilitar el join
+estructura_gasto_largo <- estructura_gasto %>%
+  pivot_longer(
+    cols = starts_with("prop_"),
+    names_to = "categoria",
+    values_to = "proporcion"
+  ) %>%
+  # Convertimos los nombres de categorías para que coincidan con los de la inflación
+  mutate(
+    rubro = case_when(
+      categoria == "prop_alimentos" ~ "inpc_alimentos",
+      categoria == "prop_vesti_calz" ~ "inpc_vesti_calz",
+      categoria == "prop_vivienda" ~ "inpc_vivienda",
+      categoria == "prop_limpieza" ~ "inpc_limpieza",
+      categoria == "prop_salud" ~ "inpc_salud",
+      categoria == "prop_transporte" ~ "inpc_transporte",
+      categoria == "prop_educ_espa" ~ "inpc_educ_espa",
+      categoria == "prop_cuid_personal" ~ "inpc_cuid_personal",
+      categoria == "prop_otros_gas" ~ "inpc_otros_gas",
+      TRUE ~ "NA"
+    )
+  ) %>%
+  select(-categoria)
+
+# Hacemos el join directamente con la tabla de inflación original
+inflacion_individual <- estructura_gasto_largo %>%
+  left_join(
+    inflacion,
+    by = c("edo", "rubro")
+  )
+
+# Calculamos la inflación individual para cada tipo
+inflacion_hogar <- inflacion_individual %>%
+  # Un hogar por fila, con cada tipo de inflación ponderada
+  group_by(clave_hogar, edo, periodo, factor, est_dis, upm, decil, ing_cor, gasto_mon) %>%
+  summarise(
+    # Inflación acumulada 2018-2020
+    inflacion_2018_2020 = sum(proporcion * inflacion_2018_2020, na.rm = TRUE),
+    # Inflación acumulada 2018-2022
+    inflacion_2018_2022 = sum(proporcion * inflacion_2018_2022, na.rm = TRUE),
+    # TMAC 2018-2020
+    tmac_2018_2020 = sum(proporcion * tmac_2018_2020, na.rm = TRUE),
+    # TMAC 2018-2022
+    tmac_2018_2022 = sum(proporcion * tmac_2018_2022, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Filtramos para generar el data frame final
+laspeyres_hogar <- inflacion_hogar %>%
+  mutate(
+    # Para hogares en 2018, mantenemos todas las medidas
+    inflacion_acum = case_when(
+      periodo == 2020 ~ inflacion_2018_2020,
+      periodo == 2022 ~ inflacion_2018_2022,
+      TRUE ~ NA_real_
+    ),
+    tmac = case_when(
+      periodo == 2020 ~ tmac_2018_2020,
+      periodo == 2022 ~ tmac_2018_2022,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  select(-inflacion_2018_2020, -inflacion_2018_2022,
+         -tmac_2018_2020, -tmac_2018_2022) %>%
+  filter(periodo != "2018")
+
+print("Data frame laspeyres_hogar completado con éxito.")
+
+head(laspeyres_hogar)
+```
+
+## Tablas y Gráficas
+
+```{r}
+print("Procesando bases para análisis gráfico...")
+
+# Creamos un objeto de diseño para cada año
+diseno_general <- laspeyres_hogar %>%
+  as_survey_design(id = upm,
+                   strata = est_dis,
+                   weights = factor,
+                   nest = TRUE)
+
+diseno_2020 <- diseno_general %>%
+  filter(periodo == "2020") %>%
+                   mutate(periodo = "2020")
+
+diseno_2022 <- diseno_general %>%
+  filter(periodo == "2022") %>%
+                   mutate(periodo = "2022")
+
+# Cálculo de medias ponderadas por decil y estado
+resumen_decil <- diseno_general %>%
+  group_by(edo, periodo, decil) %>%
+  summarise(
+    ing_cor = survey_mean(ing_cor, na.rm = TRUE),
+    gasto_mon = survey_mean(gasto_mon, na.rm = TRUE),
+    tmac = survey_mean(tmac, na.rm = TRUE),
+    inflacion_acum = survey_mean(inflacion_acum, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  select(-ing_cor_se, -gasto_mon_se, -inflacion_acum_se, -tmac_se)
+
+resumen_decil_2020 <- diseno_2020 %>%
+  group_by(decil, edo) %>%
+  summarise(
+    ing_cor = survey_mean(ing_cor, na.rm = TRUE),
+    inflacion_acum = survey_mean(inflacion_acum, na.rm = TRUE),
+    tmac = survey_mean(tmac, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  select(-ing_cor_se, -inflacion_acum_se, -tmac_se) %>%
+  mutate(
+    "Ingreso promedio" = ing_cor,
+    "Inflación Acumulada Promedio" = round(inflacion_acum * 100, 2),
+    "Inflación Media Anual Promedio" = round(tmac * 100, 2),
+    periodo = "2020"
+  ) %>%
+  select(periodo, edo, decil, "Ingreso promedio", "Inflación Acumulada Promedio", "Inflación Media Anual Promedio")
+
+resumen_decil_2022 <- diseno_2022 %>%
+  group_by(decil, edo) %>%
+  summarise(
+    ing_cor = survey_mean(ing_cor, na.rm = TRUE),
+    inflacion_acum = survey_mean(inflacion_acum, na.rm = TRUE),
+    tmac = survey_mean(tmac, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  select(-ing_cor_se, -inflacion_acum_se, -tmac_se) %>%
+  mutate(
+    "Ingreso promedio" = ing_cor,
+    "Inflación Acumulada Promedio" = round(inflacion_acum * 100, 2),
+    "Inflación Media Anual Promedio" = round(tmac * 100, 2),
+    periodo = "2022"
+  ) %>%
+  select(periodo, edo, decil, "Ingreso promedio", "Inflación Acumulada Promedio", "Inflación Media Anual Promedio")
+
+# Combinar bases
+resumen_nacional <- bind_rows(resumen_decil_2020, resumen_decil_2022)
+
+print("Proceso completado con éxito.")
+
+head(resumen_nacional)
+```
+
+### Estadística descriptiva
+
+```{r}
+resumen_nacional %>%
+  group_by(decil, periodo) %>%
+  summarise(
+    Media = round(mean(`Inflación Media Anual Promedio`, na.rm = TRUE), 2),
+    `Desv. estándar` = round(sd(`Inflación Media Anual Promedio`, na.rm = TRUE), 2),
+    Mínimo = round(min(`Inflación Media Anual Promedio`, na.rm = TRUE), 2),
+    P25 = round(quantile(`Inflación Media Anual Promedio`, 0.25, na.rm = TRUE), 2),
+    Mediana = round(median(`Inflación Media Anual Promedio`, na.rm = TRUE), 2),
+    P75 = round(quantile(`Inflación Media Anual Promedio`, 0.75, na.rm = TRUE), 2),
+    Máximo = round(max(`Inflación Media Anual Promedio`, na.rm = TRUE), 2),
+    .groups = "drop"
+  ) %>%
+  ungroup() %>%
+  kable(caption = "Estadísticas descriptivas de inflación media anual por decil") %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Inflación por decil a nivel nacional
+
+```{r}
+ggplot(resumen_nacional, aes(x = factor(decil), y = `Inflación Media Anual Promedio`, fill = periodo)) +
+  geom_col(position = "dodge") +
+  labs(title = "Tasa de Inflación Anual Compuesta a Nivel Hogar",
+       subtitle = "Promedio Nacional por Decil de Ingreso - Año Base 2018",
+       x = "Decil de ingreso", y = "Inflación (%)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("darkblue", "red"))
+```
+
+### Inflación por decil y estado
+
+```{r, fig.width=16, fig.height=10}
+ggplot(resumen_nacional, aes(x = factor(decil), y = `Inflación Media Anual Promedio`, group = periodo, color = periodo)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ edo) + 
+  scale_color_manual(values = c("2020" = "darkblue", "2022" = "red")) +
+  labs(
+    title = "Tasa de Inflación Anual Compuesta a Nivel Hogar",
+    subtitle = "Promedio por Decil y Entidad - Año Base 2018",
+    x = "Decil de ingreso",
+    y = "Inflación (%)"
+  ) +
+  theme_minimal()
+```
+
+### Heatmap
+
+```{r, fig.width=15, fig.height=9}
+# Datos
+data_heatmap <- resumen_nacional %>%
+  group_by(edo, periodo) %>%
+  mutate(inflacion_escalada = scales::rescale(`Inflación Media Anual Promedio`)) %>%
+  ungroup()
+  
+# Escala relativa
+ggplot(data_heatmap, aes(x = factor(decil), y = edo, fill = inflacion_escalada)) +
+  geom_tile() +
+  facet_wrap(~ periodo) +
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "yellow",
+    high = "red",
+    midpoint = 0.5,
+    limits = c(0, 1),
+    name = "Inflación\nrelativa"
+  ) +
+  labs(
+    title = "Tasa de Inflación Anual Compuesta a Nivel Hogar (Escala Relativa)",
+    subtitle = "Promedio por Decil y Entidad - Año Base 2018",
+    x = "Decil de Ingreso", y = "Entidad Federativa"
+  ) +
+  geom_text(aes(label = round(`Inflación Media Anual Promedio`, 1)), size = 3.5, color = "white") +
+  theme_minimal()
+```
+
+### Distribución de la Inflación Anual Compuesta a Nivel Hogar
+
+```{r}
+# Calcular media por decil y periodo
+etiquetas_media <- resumen_nacional %>%
+  group_by(decil, periodo) %>%
+  summarise(media = mean(`Inflación Media Anual Promedio`, na.rm = TRUE), .groups = "drop")
+
+# Boxplot con etiquetas de la media
+ggplot(resumen_nacional, aes(x = factor(decil), y = `Inflación Media Anual Promedio`, fill = periodo)) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  geom_text(
+    data = etiquetas_media,
+    aes(x = factor(decil), y = media, label = round(media, 1), group = periodo),
+    position = position_dodge(width = 0.75),
+    vjust = -0.5,
+    size = 3,
+    color = "white"
+  ) +
+  scale_fill_manual(
+    values = c("2020" = "blue", "2022" = "red"),
+    name = "Periodo"
+  ) +
+  labs(
+    title = "Distribución de la Inflación Anual Compuesta a Nivel Hogar",
+    subtitle = "Promedio por Decil de Ingreso - Año Base 2018",
+    x = "Decil de ingreso",
+    y = "Inflación (%)"
+  ) +
+  theme_minimal()
+```
+
+### Gasto vs Inflación
+
+**Por periodo**
+```{r, fig.width=10, fig.height=5}
+ggplot(
+  laspeyres_hogar %>% 
+    filter(gasto_mon != 0) %>%
+    mutate(Periodo = as.factor(periodo))%>%
+    sample_n(5000),
+  aes(x = tmac, y = gasto_mon)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ Periodo, scales = "free") +
+  labs(title = "Gasto Monetario Trimestral e Inflación a Nivel Hogar",
+       subtitle = "Nacional - Año Base 2018",
+       x = "Inflación media anual (%)",
+       y = "Pesos Corrientes") +
+  theme_minimal()
+```
+
+**Promedio estatal**
+```{r, fig.width=10, fig.height=5}
+ggplot(resumen_decil %>% 
+         mutate(Periodo = as.factor(periodo)),
+       aes(x = tmac, y = gasto_mon, color = Periodo)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Gasto Promedio por Decil de Ingreso e Inflación a Nivel Hogar",
+    subtitle = "Estatal - Año Base 2018",
+    x = "Inflación (%)",
+    y = "Pesos Corrientes"
+  ) +  
+  theme_minimal()
+``` 
+
+**Promedio estatal por decil**
+```{r, fig.width=10, fig.height=6}
+ggplot(resumen_decil %>% 
+         mutate(Periodo = as.factor(periodo)),
+       aes(x = tmac, y = gasto_mon, color = Periodo)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ decil, scales = "free") +
+  labs(
+    title = "Gasto Promedio Trimestral e Inflación a Nivel Hogar",
+    subtitle = "Estatal por Decil de Ingreso - Año Base 2018",
+    x = "Inflación %)",
+    y = "Pesos Corrientes"
+  ) +
+  theme_minimal()
+```
+
+**Por decil**
+```{r, fig.width=12, fig.height=8}
+ggplot(
+  laspeyres_hogar %>% 
+    filter(gasto_mon != 0) %>%
+    mutate(Periodo = as.factor(periodo))%>%
+    sample_n(5000),
+  aes(x = tmac, y = gasto_mon, color = Periodo)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ decil, scales = "free") +
+  labs(title = "Gasto Monetario Trimestral e Inflación a Nivel Hogar",
+       subtitle = "Decil de Ingreso - Año Base 2018",
+       x = "Inflación media anual (%)",
+       y = "Pesos Corrientes") +
+  theme_minimal()
+```
+
+**Por estado**
+```{r, fig.width=12, fig.height=10}
+ggplot(
+  laspeyres_hogar %>% 
+    filter(gasto_mon != 0) %>%
+    mutate(Periodo = as.factor(periodo))%>%
+    sample_n(5000),
+  aes(x = tmac, y = gasto_mon, color = Periodo)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ edo, scales = "free") +
+  labs(title = "Gasto Monetario Trimestral e Inflación a Nivel Hogar",
+       subtitle = "Entidad Federativa - Año Base 2018",
+       x = "Inflación media anual (%)",
+       y = "Pesos Corrientes") +
+  theme_minimal()
+```
+
